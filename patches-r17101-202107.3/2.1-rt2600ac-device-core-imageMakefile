@@ -1,0 +1,98 @@
+Index: ipqREBASE202107clean/target/linux/ipq806x/image/Makefile
+===================================================================
+--- ipqREBASE202107clean.orig/target/linux/ipq806x/image/Makefile
++++ ipqREBASE202107clean/target/linux/ipq806x/image/Makefile
+@@ -23,6 +23,32 @@ define Build/edimax-header
+ 	@mv $@.new $@
+ endef
+ 
++define Build/synology-firmware
++	set > $(BIN_DIR)/SETimageMakefile1
++	(rm -fR $@-fw; mkdir -p $@-fw)
++	(mkdir  $@-fw/sysupgrade-rt2600ac)
++	(echo "BOARD=rt2600ac" > $@-fw/sysupgrade-rt2600ac/CONTROL)
++	$(CP) $(BIN_DIR)/openwrt-ipq806x-generic-$(DEVICE_NAME)-uImage $@-fw/sysupgrade-rt2600ac/kernel
++	(cd $(TARGET_DIR); $(TAR) -czf $@-fw/sysupgrade-rt2600ac/rootfs.tar.gz .)
++	./synology_gen_pat.sh $@-fw $(BIN_DIR)/openwrt-ipq806x-generic-$(DEVICE_NAME)-firmware.pat $(DEVICE_NAME)
++	(cd $@-fw; $(STAGING_DIR_HOST)/bin/synochecksum * > checksum.syno)
++	(cd $@-fw; cat checksum.syno)
++	(cd $@-fw; find .)
++	(cd $@-fw; $(TAR) -cf $(BIN_DIR)/openwrt-ipq806x-generic-synology_rt2600ac-firmware.pat .)
++	$(if $(SUPPORTED_DEVICES),-echo $(call metadata_json,$(SUPPORTED_DEVICES)) | fwtool -I - $(BIN_DIR)/openwrt-ipq806x-generic-synology_rt2600ac-firmware.pat)
++	(cd $@-fw; $(TAR) -cf $(BIN_DIR)/openwrt-ipq806x-generic-$(DEVICE_NAME)-sysupgrade.pat .)
++	$(if $(SUPPORTED_DEVICES),-echo $(call metadata_json,$(SUPPORTED_DEVICES)) | fwtool -I - $(BIN_DIR)/openwrt-ipq806x-generic-synology_rt2600ac-sysupgrade.pat)
++	(echo "############# maybe halfway to own sysupgrade-nonsquash ######NOTHISWAS-GZd-aka-ATTEMPTINGTOBEOFFICIAL############")
++	(echo "###ITHINKREMOVINGTHEMIDDLEzyxelimageandbottomcall ## WHY HERE > did not trust real recipe? #########################")
++	(cd $@-fw; $(TAR) -czf ../openwrt-ipq806x-generic-$(DEVICE_NAME)-squashfs-firmware.tgz .)
++	(echo "################# NOTE DOES NOT PLACE IN BIN so tricking original recipe? ######################")
++	(echo "SUPPORTED_DEVICES:  $(SUPPORTED_DEVICES)")
++	(echo "ATATATATAT: $@")
++	(echo "DEVICE_NAME:  $(DEVICE_NAME)")
++	(echo "FUCKEDUPIMAGEPREFIX:  $(IMAGE_PREFIX)")
++	(echo "FUCKEDUPIMAGEPREFIX:  $$$(IMAGE_PREFIX)")
++endef
++
+ define Device/Default
+ 	PROFILES := Default
+ 	KERNEL_DEPENDS = $$(wildcard $(DTS_DIR)/$$(DEVICE_DTS).dts)
+@@ -81,6 +107,14 @@ define Device/TpSafeImage
+ 	IMAGE/sysupgrade.bin := append-rootfs | tplink-safeloader sysupgrade | append-metadata
+ endef
+ 
++define Device/SynologyImage
++	KERNEL_SUFFIX := -uImage
++	KERNEL = kernel-bin | append-dtb | uImage none | pad-to $${KERNEL_SIZE}
++	KERNEL_NAME := zImage
++	IMAGES := firmware.tgz
++	IMAGE/firmware.tgz := synology-firmware | append-metadata
++endef
++
+ define Device/ZyXELImage
+ 	KERNEL_SUFFIX := -uImage
+ 	KERNEL = kernel-bin | append-dtb | uImage none | pad-to $$(KERNEL_SIZE)
+@@ -157,23 +191,6 @@ define Device/edgecore_ecw5410
+ endef
+ TARGET_DEVICES += edgecore_ecw5410
+ 
+-define Device/linksys_ea7500-v1
+-	$(call Device/LegacyImage)
+-	DEVICE_VENDOR := Linksys
+-	DEVICE_MODEL := EA7500
+-	DEVICE_VARIANT := v1
+-	SOC := qcom-ipq8064
+-	PAGESIZE := 2048
+-	BLOCKSIZE := 128k
+-	KERNEL_SIZE := 3072k
+-	KERNEL = kernel-bin | append-dtb | uImage none | append-uImage-fakehdr filesystem
+-	UBINIZE_OPTS := -E 5
+-	IMAGES := factory.bin sysupgrade.bin
+-	IMAGE/factory.bin := append-kernel | pad-to $$$$(KERNEL_SIZE) | append-ubi | pad-to $$$$(PAGESIZE)
+-	DEVICE_PACKAGES := ath10k-firmware-qca99x0-ct
+-endef
+-TARGET_DEVICES += linksys_ea7500-v1
+-
+ define Device/linksys_ea8500
+ 	$(call Device/LegacyImage)
+ 	DEVICE_VENDOR := Linksys
+@@ -405,6 +422,21 @@ define Device/ubnt_unifi-ac-hd
+ endef
+ TARGET_DEVICES += ubnt_unifi-ac-hd
+ 
++define Device/synology_rt2600ac
++	DEVICE_VENDOR := Synology
++	DEVICE_MODEL := RT2600AC
++	SOC := qcom-ipq8065
++	KERNEL_SIZE := 4096k
++	KERNEL_SUFFIX := -uImage
++	KERNEL_INSTALL := 1
++	BLOCKSIZE := 64k
++	BOARD_NAME := rt2600ac
++	SUPPORTED_DEVICES += rt2600ac
++	DEVICE_PACKAGES := ath10k-firmware-qca9984-ct e2fsprogs kmod-fs-ext4 losetup
++	$(call Device/SynologyImage)
++endef
++TARGET_DEVICES += synology_rt2600ac
++
+ define Device/zyxel_nbg6817
+ 	DEVICE_VENDOR := ZyXEL
+ 	DEVICE_MODEL := NBG6817

@@ -1,0 +1,18 @@
+
+
+setenv dload '0x48000000'
+setenv uload '0x50000000'
+setenv sload '0x49000000'
+setenv checkusb 'usb start; if ext2load usb 0:1 ${uload} booty.txt; then echo Importing USB booty.txt && env import -t ${uload} ${filesize} && run bootcmd; fi'
+setenv bootcmdorg 'run syno_bootargs; run bootmmc'
+setenv bootcmd 'run checkusb; run bootcmdorg; run bootresc'
+
+
+
+
+#NOTE; type printenv and check the above 'stuck' ok
+       if ok type 'saveenv'
+
+
+
+

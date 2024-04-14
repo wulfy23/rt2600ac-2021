@@ -1,0 +1,4 @@
+bootdelay=3
+bootargs=console=ttyMSM0,115200n8 init=/sbin/init root=/dev/sda2 rootwait
+wrtgo=usb start; ext2load usb 0:1 $kload kernel; bootm $kload
+bootcmd=run wrtgo

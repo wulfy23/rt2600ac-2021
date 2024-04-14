@@ -1,0 +1,16 @@
+Index: ipqREBASE202107clean/target/linux/ipq806x/base-files/etc/board.d/01_leds
+===================================================================
+--- ipqREBASE202107clean.orig/target/linux/ipq806x/base-files/etc/board.d/01_leds
++++ ipqREBASE202107clean/target/linux/ipq806x/base-files/etc/board.d/01_leds
+@@ -60,6 +60,11 @@ tplink,vr2600v)
+ 	ucidef_set_led_wlan "wlan5g" "WLAN5G" "white:wlan5g" "phy1tpt"
+ 	ucidef_set_led_switch "wan" "wan" "white:wan" "switch0" "0x20"
+ 	;;
++synology,rt2600ac)
++	### IMPORTWHYETH0 ucidef_set_led_netdev "wan" "WAN" "amber:internet" "eth0"
++	#########################202107problyrong ucidef_set_led_netdev "wan" "WAN" "amber:internet" "eth1"
++	ucidef_set_led_netdev "wan" "WAN" "amber:internet" "eth0"
++	;;
+ zyxel,nbg6817)
+ 	ucidef_set_led_netdev "wan" "WAN" "white:internet" "eth1"
+ 	;;

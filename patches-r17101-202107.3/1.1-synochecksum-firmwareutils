@@ -1,0 +1,12 @@
+Index: ipqREBASE202107clean/tools/firmware-utils/Makefile
+===================================================================
+--- ipqREBASE202107clean.orig/tools/firmware-utils/Makefile
++++ ipqREBASE202107clean/tools/firmware-utils/Makefile
+@@ -89,6 +89,7 @@ define Host/Compile
+ 	$(call cc,sign_dlink_ru md5,-Wall)
+ 	$(call cc,spw303v,-Wall)
+ 	$(call cc,srec2bin)
++	$(call cc,synochecksum)
+ 	$(call cc,tplink-safeloader md5,-Wall --std=gnu99)
+ 	$(call cc,trx,-Wall)
+ 	$(call cc,trx2edips,-Wall)

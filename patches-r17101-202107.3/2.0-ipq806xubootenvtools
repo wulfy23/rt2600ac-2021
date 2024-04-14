@@ -1,0 +1,14 @@
+Index: ipqREBASE202107clean/package/boot/uboot-envtools/files/ipq806x
+===================================================================
+--- ipqREBASE202107clean.orig/package/boot/uboot-envtools/files/ipq806x
++++ ipqREBASE202107clean/package/boot/uboot-envtools/files/ipq806x
+@@ -51,6 +51,9 @@ ubnt,unifi-ac-hd|\
+ zyxel,nbg6817)
+ 	ubootenv_add_uci_config "/dev/mtdblock9" "0x0" "0x10000" "0x10000"
+ 	;;
++synology,rt2600ac)
++    ubootenv_add_uci_config "/dev/mtd9 " "0x0" "0x40000" "0x10000"
++;;
+ esac
+ 
+ config_load ubootenv

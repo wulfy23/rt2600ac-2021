@@ -1,0 +1,81 @@
+Index: ipqREBASE202107clean/target/linux/ipq806x/base-files/etc/board.d/02_network
+===================================================================
+--- ipqREBASE202107clean.orig/target/linux/ipq806x/base-files/etc/board.d/02_network
++++ ipqREBASE202107clean/target/linux/ipq806x/base-files/etc/board.d/02_network
+@@ -29,7 +29,10 @@ tplink,vr2600v)
+ 	;;
+ edgecore,ecw5410)
+ 	ucidef_set_interfaces_lan_wan "eth1" "eth0"
+-	if [ -b "$(find_mtd_part 0:art)" ]; then
++	
++
++
++     if [ -b "$(find_mtd_part 0:art)" ]; then
+ 		ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary "0:art" 0x6)"
+ 		ucidef_set_interface_macaddr "wan" "$(mtd_get_mac_binary "0:art" 0x0)"
+ 	else
+@@ -37,7 +40,12 @@ edgecore,ecw5410)
+ 		ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary "0:ART" 0x6)"
+ 		ucidef_set_interface_macaddr "wan" "$(mtd_get_mac_binary "0:ART" 0x0)"
+ 	fi
+-	;;
++	
++
++
++
++
++    ;;
+ linksys,ea7500-v1)
+ 	hw_mac_addr=$(mtd_get_mac_ascii devinfo hw_mac_addr)
+ 	ucidef_add_switch "switch0" \
+@@ -78,6 +86,50 @@ tplink,ad7200)
+ ubnt,unifi-ac-hd)
+ 	ucidef_set_interface_lan "eth0 eth1"
+ 	;;
++synology,rt2600ac)
++
++
++#     if [ -b "$(find_mtd_part 0:art)" ]; then
++#		ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary "0:art" 0x6)"
++#		ucidef_set_interface_macaddr "wan" "$(mtd_get_mac_binary "0:art" 0x0)"
++#	else
++#		# XXX: drop upper case after kernel v5.4 is gone (qcom-smem)
++#		ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary "0:ART" 0x6)"
++#		ucidef_set_interface_macaddr "wan" "$(mtd_get_mac_binary "0:ART" 0x0)"
++#	fi
++	
++
++
++
++#	hw_mac_addr=$(mtd_get_mac_binary 0:VENDORPART 0xd0)
++#	lan_mac_addr=$(macaddr_add $hw_mac_addr +2)
++#	ucidef_add_switch "switch0" \
++#		"1:lan" "2:lan" "3:lan" "4:lan" "6@eth1" "5:wan" "0@eth0"
++#	ucidef_set_interface_macaddr "lan" "$lan_mac_addr"
++#	ucidef_set_interface_macaddr "wan" "$hw_mac_addr"
++
++
++
++     if [ -b "$(find_mtd_part 0:art)" ]; then
++		hw_mac_addr=$(mtd_get_mac_binary 0:vendorpart 0xd0)
++	else
++#		# XXX: drop upper case after kernel v5.4 is gone (qcom-smem)
++		hw_mac_addr=$(mtd_get_mac_binary 0:VENDORPART 0xd0)
++	fi
++	lan_mac_addr=$(macaddr_add $hw_mac_addr +2)
++	ucidef_add_switch "switch0" \
++		"4:lan" "3:lan" "2:lan" "1:lan" "6@eth1" "5:wan" "0@eth0"
++	ucidef_set_interface_macaddr "lan" "$lan_mac_addr"
++	ucidef_set_interface_macaddr "wan" "$hw_mac_addr"
++
++	#"1:lan" "2:lan" "3:lan" "4:lan" "6@eth1" "5:wan" "0@eth0"
++
++
++	;;
++
++
++
++
+ zyxel,nbg6817)
+ 	hw_mac_addr=$(mtd_get_mac_ascii 0:appsblenv ethaddr)
+ 	# XXX: drop upper case after kernel v5.4 is gone (qcom-smem)

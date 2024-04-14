@@ -1,0 +1,1575 @@
+Index: ipqREBASE202107clean/target/linux/ipq806x/image/synology_gen_pat.sh
+===================================================================
+--- /dev/null
++++ ipqREBASE202107clean/target/linux/ipq806x/image/synology_gen_pat.sh
+@@ -0,0 +1,105 @@
++#!/usr/bin/env bash
++
++#1 folder with all the files pre tar
++#2 outfile path/name
++########################################TBA
++#3 optional boot.cmd dir/name???
++#5 possible extract rootfs to "mmcblkXpX"
++#6 uboot version to check
++
++
++#writes updater checksum.syno wrtbootgen.sh(in rootfs)? boot.scr booty.txt
++
++
++devicebootcmdF="bootscript_synology_rt2600ac.cmd"
++deviceupdaterF="updater_synology_rt2600ac"
++deviceusbboottxtF="synology_booty.txt"
++
++
++
++copyupdater() { #NB: Do not chmod +x
++echo ""; echo "Copy updater: $1 to $2"; sleep 1; echo ""
++if [ ! -f "$1" ]; then echo "updater src no go: $1" && return 1; fi
++if [ ! -d "$(dirname $2)" ]; then echo "dest -fw no go: $(dirname $1)" && return 1; fi
++cp "${1}" "${2}"
++return 0
++}
++#if [ ! -d "`dirname $2`" ]; then echo "dest -fw no go: `dirname $1`" && return 1; fi
++
++
++generatebootscr() {
++
++outdir="$(dirname ${2})"
++
++if [ ! -f "${1}" ]; then echo "cmd: ${1} [issue-nf]" && return 1; fi
++if [ ! -d "$outdir" ]; then echo "outdir: ${outdir} [issue-nf]" && return 1; fi
++
++echo ""
++echo "######################################################"
++echo "        cmd: $1"
++echo "        scr: $2"
++echo "######################################################"
++echo ""
++#echo "        outdir: $outdir"
++#sleep 2
++
++echo "Generating boot.scr from boot.cmd";
++
++sleep 2;
++echo "$MKIMAGE -C none -A arm -T script -d \"${1}\" \"${2}\""
++
++$MKIMAGE -C none -A arm -T script -d "${1}" "${2}" || exit 1 #exit 1 untested return?
++
++return 0
++}
++#echo ""; echo ""; echo "find $outdir"; find $outdir; echo ""; echo ""; #exit 1
++#outdir="`dirname ${2}`"
++#sleep 2; #echo "$MKIMAGE -C none -A arm -T script -d \"${1}\" \"${2}\""
++
++
++
++BBIN="`dirname $BASH`"
++FWTOOL="$BBIN/fwtool"; [ -x $FWTOOL ] || (echo "fwtool is NOT okey dokey" && exit 1)
++SYNOCKSUM="$BBIN/synochecksum"; [ -x $SYNOCKSUM ] || (echo "synochecksum is NOT okey dokey" && exit 1)
++MKIMAGE="$BBIN/mkimage"; [ -x $MKIMAGE ] || (echo "mkimage is NOT okey dokey" && exit 1)
++#echo "############### BBIN: $BBIN"
++
++
++if [ ! -f "$PWD/$devicebootcmdF" ]; then	echo "$PWD/$devicebootcmdF [nope]" && exit 1; fi
++if [ ! -f "$PWD/$deviceupdaterF" ]; then	echo "$PWD/$deviceupdaterF [nope]" && exit 1; fi
++if [ ! -f "$PWD/$deviceusbboottxtF" ]; then	echo "$PWD/$deviceusbboottxtF [nope]" && exit 1; fi
++#deviceusbboottxtF="synology_booty.txt"
++
++
++
++generatebootscr "$PWD/$devicebootcmdF" "$1/boot.scr"
++copyupdater $PWD/$deviceupdaterF $1/updater
++cp $PWD/synology_booty.txt $1/booty.txt
++
++
++echo "Inspect $1"; echo "#########################################################"; (cd $1; find .)
++exit 0
++
++
++
++################################################################################
++#-(cd $(TARGET_DIR); $(TAR) -cvzf $@-fw/rootfs.tgz .)
++#-(cd $@     .boot; $(TAR) -cvzf $@-fw/boot.tgz .)
++#-(cd $@-fw; $(TAR) -cvzf $(KDIR_    TMP)/$(IMAGE_PREFIX)-firmware.tgz .)
++################################################################################
++################################################################################
++#+$(TAR) -cvzp --numeric-owner --o   wner=0 --group=0 --sort=name \
++#    +$(if $(SOURCE_DATE_EPOCH),--mtime="@$      (SOURCE_DATE_EPOCH)") \
++#    +-f $@-fw/rootfs.tgz -C $(TARGET_DIR) .
++#+$(T            AR) -cvzp --numeric-owner --owner=0 --group=0 --sort=name \
++#    +$(if $(S       OURCE_DATE_EPOCH),--mtime="@$(SOURCE_DATE_EPOCH)") \
++#    +-f $@-fw/boot.t        gz -C $@.boot .
++#+$(TAR) -cvzp --numeric-owner --owner=0 --group=0 --so  rt=name \
++#    +$(if $(SOURCE_DATE_EPOCH),--mtime="@$(SOURCE_DATE_EPOCH)")      \
++#    +-f $(KDIR_TMP)/$(IMAGE_PREFIX)-firmware.tgz -C $@-fw .
++# endef
++################################################################################
++
++
++
++
+Index: ipqREBASE202107clean/target/linux/ipq806x/image/synology_booty.txt
+===================================================================
+--- /dev/null
++++ ipqREBASE202107clean/target/linux/ipq806x/image/synology_booty.txt
+@@ -0,0 +1,10 @@
++bootdelay=3
++wrt_init=/sbin/init
++wrt_root_delay=7
++wrt_console=ttyMSM0,115200n8
++wrtbootdev=/dev/sda3
++wrt_extra=rootwait nohz=off
++serverip=192.168.1.7
++wrtbootarg=setenv bootargs console=ttyMSM0,115200n8 init=/sbin/init root=/dev/sda3 rootwait
++wrtgo=usb start; ext2load usb 0:1 $kload kernel; run wrtbootarg; bootm $kload
++bootcmd=run wrtgo
+Index: ipqREBASE202107clean/target/linux/ipq806x/image/bootscript_synology_rt2600ac.cmd
+===================================================================
+--- /dev/null
++++ ipqREBASE202107clean/target/linux/ipq806x/image/bootscript_synology_rt2600ac.cmd
+@@ -0,0 +1,142 @@
++
++setenv kload 0x44000000
++setenv rload 0x46000000
++setenv dload 0x48000000
++setenv sload 0x49000000
++setenv uload 0x50000000
++
++setenv loadcmd ext2load
++setenv bootpart 0
++
++setenv wrt_console ttyMSM0,115200n8
++setenv wrt_extra rootwait
++setenv wrt_init /sbin/init
++setenv wrt_boottxt booty.txt
++
++
++if test -n "$wrtbootalt"; then
++	echo wrtbootalt is set ${wrtbootalt}
++else
++	setenv wrtbootalt 0
++	echo wrtbootalt setting to 0 as not defined: ${wrtbootalt}
++fi
++
++
++setenv wrtkernelusb kernel
++setenv wrtkernelusbalt kernel2
++
++setenv wrtkernelmmc kernel
++setenv wrtkernelmmcalt kernel2
++
++setenv wrtrfspartusb 3
++setenv wrtrfspartusbalt 5
++
++setenv wrtrfspartmmc 7
++setenv wrtrfspartmmcalt 6
++
++
++if test -n "$wrtbootalt"; then
++	echo fix these devsets if is number
++	setenv wrtkernelusb ${wrtkernelusbalt}
++	setenv wrtrfspartusb ${wrtrfspartusbalt}
++	setenv wrtrfspartmmc ${wrtrfspartmmcalt}
++fi
++
++
++setenv usb_scan_list 1 2 3 4
++setenv usb_scan_1 usb=0:1 dev=sda${wrtrfspartusb}
++setenv usb_scan_2 usb=1:1 dev=sdb${wrtrfspartusb}
++setenv usb_scan_3 usb=2:1 dev=sdc${wrtrfspartusb}
++setenv usb_scan_4 usb=3:1 dev=sdd${wrtrfspartusb}
++
++
++setenv usb_device 0:1
++setenv usb_root /dev/sda3
++echo TEST1ACTUALSTATIC setenv usb_root /dev/sda3
++echo TEST1PROPOSEDVARIABLE setenv usb_root /dev/sda${wrtrfspartusb}
++
++
++setenv usb_rootfstype ext4,squashfs
++setenv usb_rootdelay 7
++
++
++setenv mmc_device 0:1
++setenv mmc_root /dev/mmcblk0p6
++
++setenv mmc_rootfstype ext4,squashfs
++setenv mmc_rootdelay 3
++
++
++setenv usb_boot bootm ${kload}
++setenv usb_set_bootargs 'setenv bootargs console=$wrt_console root=$usb_root rootdelay=$usb_rootdelay rootfstype=$usb_rootfstype init=$wrt_init $usb_custom_params'
++
++setenv mmc_boot bootm ${kload}
++setenv mmc_set_bootargs 'setenv bootargs console=$wrt_console root=$mmc_root rootdelay=$mmc_rootdelay rootfstype=$mmc_rootfstype init=$wrt_init $mmc_custom_params'
++
++
++echo "boot.scr starting usb"
++usb start
++
++
++echo check usb_set_bootargs is still variables ${usb_set_bootargs} printenv debugwashere
++
++
++echo "2scanning for ${wrt_boottxt} on usb this will skip all script loading"
++for scan in $usb_scan_list; do
++	run usb_scan_$scan
++	if $loadcmd usb $usb ${uload} $wrt_boottxt; then
++		echo Importing USB $wrt_boottxt from $usb
++		if env import -t ${uload} ${filesize}; then
++			echo env import success
++			setenv boottxtufound 1
++		else
++			echo env import failed
++		fi
++	else
++		echo no $wrt_boottxt on usb $usb
++	fi
++done
++
++
++if test -n $boottxtufound; then
++	echo skip mmc boot openwrt as we found boottxt on usb
++
++	echo test run bootcmd now
++	if test -n ${wrtgo}; then
++		echo wrtgo is set running
++		run wrtgo; run bootcmd
++	else
++		echo wrtgo not defined in boot txt see what uboot bootcmd does hand back put printenv at start on all bootcmds
++	fi
++else
++
++	if test ${wrtbootalt} -eq 2; then
++		echo wrtbootalt istwo:${wrtbootalt}
++	else
++		echo wrtbootalt isnottwo: ${wrtbootalt}
++
++		echo no boot txt on usb so we will try openwrt on mmc
++		echo use fw_setenv wrtbootalt 2 to switch to oem
++
++		if $loadcmd mmc 0:1 ${kload} ${wrtkernelmmc}; then
++			echo found kernel on mmc booting openwrt
++			setenv mmc_device 'mmc 0:1'; setenv mmc_root /dev/mmcblk0p6
++			run mmc_set_bootargs
++			run mmc_boot
++		else
++			echo no kernel on mmc 0:1
++		fi
++
++	fi
++fi
++
++
++echo hand over to uboot to run bootcmd
++echo check final wrtusbkernel name: ${wrtkernelusb}
++echo check final wrtusbkernelalt name: ${wrtkernelusbalt}
++echo check final usb_device ${usb_device}
++echo check final usb_root ${usb_root}
++echo another final printenv debug
++
++
++
+Index: ipqREBASE202107clean/target/linux/ipq806x/image/updater_synology_rt2600ac
+===================================================================
+--- /dev/null
++++ ipqREBASE202107clean/target/linux/ipq806x/image/updater_synology_rt2600ac
+@@ -0,0 +1,1298 @@
++#!/bin/sh
++D="`date +%s`"
++logFILE="/volume1/openwrt.install.log"
++
++hwversionvalid="RT2600acv10-j";
++hwversion="`cat /proc/sys/kernel/syno_hw_version`"
++unameoemvalid="Linux SynologyRouter 3.4.103 #6941"
++
++kernelmax=5594304
++rootfsmax=16894071 #43M???
++rootfsmax=46894071 #mmc6
++
++
++#datapart="mmcblk0p7"
++bootpart="mmcblk0p1"
++rootpart="mmcblk0p7"
++miscpart="mmcblk0p6"
++oemrootpart="mmcblk0p5"
++mountparts="$bootpart $rootpart $oemrootpart"
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++#202107justsketchyoneechotestfornow
++
++iDBG=1
++
++logit() {
++
++    /bin/echo "`date +%s`-$0 ${*}" >> "${logFILE}"
++	
++
++	#@202107@>
++	if [ -z "$iDBG" ] && [ "${2}" = "debug" ]; then return 0; fi
++
++	
++	/bin/echo "`date +%s`-$0 ${*}" > /dev/console
++    /bin/sleep 1
++
++}
++
++
++
++
++#@202107@> if [ -z "$iDBG" ] && [ "${2}" = "debug" ]; then return 0
++
++
++
++
++
++
++
++
++
++
++
++
++
++thereisnopublicsothisendsupnotused() {
++logfile=
++[ -d /volume1/public ] && logfile=/volume1/public/install-log-`date +%Y%m%d_%H%M`.txt
++[ ! -z "$logfile" ] && exec 1>$logfile
++exec 2>&1
++logit "DBG: [ ! -z $logfile ] && exec 1>$logfile"; /bin/sleep 3
++}
++
++
++
++
++progresstick() {
++/bin/echo "C:$1:" > /tmp/update.progress
++/bin/sleep $2
++}
++
++
++
++
++############################
++#set -e #wasorg
++trap terminate 0
++############################
++
++
++
++
++
++terminate()
++{
++    #if [ $# -ne 2 ]; then
++    #	ret=99
++    #	msg="An error has occured. Check the logfile which has been saved on the public share (if it exists)."
++    #else
++	case "$1" in
++	    ok|OK)
++		ret=42
++		msg="$2"
++		;;
++	    fail*|FAIL*)
++		ret=99
++		msg="$2"
++		;;
++	    *)
++		#unknown error see logfile on public share if it exits (99 :) )
++		ret=99
++		msg="$2"
++		;;
++	esac
++    #fi
++
++    # save error message
++    echo "extramsg=\"$msg\"" > /tmp/update.message
++    echo "P:-$ret:" > /tmp/update.progress
++
++    ############ BYPASSINGTHEABOVETOTEST
++    #echo "FOOBARBABY" > /tmp/update.message
++    #####echo "P:-42:" > /tmp/update.progress
++    #echo "P:-0:" > /tmp/update.progress
++    ####echo "A:1:" > /tmp/update.progress
++    # remove trap
++    trap 0
++    /bin/sleep 5
++    exit $ret
++    #exit 42
++    #exit 0
++}
++
++
++
++
++writefakefwprint() {
++
++if [ -f "/usr/sbin/fw_printenv" ]; then logit "overwriting existing fw_printenv"; else logit "fw_printenv is new"; fi; /bin/sleep 2
++logit "!!! statically setup for mpart=mmcblk0p6 !!!"; /bin/sleep 2
++
++cat <<'EiopK' > /usr/sbin/fw_printenv
++#!/bin/sh
++
++mpart="mmcblk0p6" #mpart="mmcblk0p7"
++mpoint="/mnt/$mpart"
++
++# ! -b /dev/$mpart
++
++mkdir -p $mpoint
++
++mount | grep -q "$mpoint" || mount /dev/$mpart $mpoint
++
++if [ ! -f "$mpoint/etc/fw_env.config" ]; then echo "/dev/mtd9 0x0 0x40000 0x10000" > $mpoint/etc/fw_env.config; fi
++if [ ! -d "$mpoint/bin" ]; then echo "mountpoint: $mpoint does not contain a valid rootfs" && exit 1; fi
++
++mkdir -p $mpoint/var/lock
++mkdir -p $mpoint/dev/
++
++mount | grep -q "$mpoint/dev" || mount -o bind /dev $mpoint/dev
++
++if [ "$(chroot $mpoint fw_printenv | wc -l)" -lt 9 ]; then echo "fw_printenv issue check /etc/fw_env.config" && exit 1; fi
++
++case "`basename $0`" in #echo "basename 0: `basename $0`"
++
++	fw_setenv)
++		#if [ "$1" = "-s" ]; then
++		#	mkdir -p $mpoint/`dirname $2`
++		#	cp $2 $mpoint/`dirname $2`
++		#fi
++		chroot $mpoint fw_setenv ${*}
++	;;
++
++	fw_printenv)
++		#echo "chroot $mpoint fw_printenv ${*}"
++		chroot $mpoint fw_printenv ${*}
++	;;
++esac
++
++
++#mount | grep -q "$mpoint" && umount $mpoint >/dev/null #THIS ONE IS TRICKYER MAY BE NEEDED ELSEWHERE
++
++###FALSEALARMwasstillinchroot think this has a bug with manual mount both first and chroot then run manually... suppose this mounted it twice?
++mount | grep -q "$mpoint/dev" && umount $mpoint/dev >/dev/null
++
++EiopK
++chmod +x /usr/sbin/fw_printenv
++cp /usr/sbin/fw_printenv /usr/sbin/fw_setenv #ln -s /usr/sbin/fw_printenv /usr/sbin/fw_setenv #fails if exists
++
++}
++
++
++######################################## ALTNOTES
++writewrtboottoggle() {
++
++#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! usbstick only 'rootfs' does not contain this toggle script? 202009 !!!!!!!!!!
++#technically... pat 1st install will put on both mmc rootfs... and usbboot can use straight fw_setenv or copy
++#or place in 'files'... usbputter would have to handle for now
++
++
++if [ -z "$1" ]; then logit "writetoggle-empty-fpath" && terminate FAIL "writeboottoggle z"; fi
++writefile="$1"
++
++if [ -f "$writefile" ]; then
++	logit "wrtboottoggle: $writefile [overw]"
++else
++	logit "wrtboottoggle: $writefile [write]"
++fi
++
++cat <<'EiopK' > $writefile
++#!/bin/sh
++
++usage() {
++
++#`basename $0`
++cat <<'ETK'
++
++	[get|toggle|set <0|1|2> (0=wrtmmc 1=tba 2=mmcoem)]
++
++    NOTE: usbstick overrides above setting
++
++ETK
++exit 0
++}
++
++#@@@ wrtbootaltmmc 0 @ >>> bootaltmmcvalname #>>> was wrtbootalt@-zSTATIC
++bootaltmmcvalname="wrtbootalt" #@@@> wrtbootaltmmc #(0=openwrt 2=oem 1=openwrtalt)
++
++case "$1" in
++	-h|--help) usage; ;;
++esac
++
++if [ "$(fw_printenv | wc -l)" -lt 9 ]; then echo "fw_printenv issue check /etc/fw_env.config" && exit 1; fi
++curbootval="$(fw_printenv -n wrtbootalt 2>/dev/null)"
++
++case "$1" in
++	set)
++		if [ -z "$2" ]; then usage; fi
++		case "$2" in
++			default) echo "set > 0 [openwrt] ( default )"; newval=0; ;;
++			0) echo "set > 0 [openwrt]"; ;;
++			#1) echo "set > 1 [danger]"; ;;
++			2) echo "set > 2 [oem]"; ;;
++			*) echo "unset--or-invalid:$2 [leaving $curbootval]"; exit 1; ;;
++		esac
++		if [ -z "$newval" ]; then newval=$2; fi
++
++		if [ "$newval" -eq "$curbootval" ]; then #echo "was...
++			echo "nochange";
++		else
++			#needs verify...
++			fw_setenv wrtbootalt $2
++		fi
++		#exit 0
++	;;
++	toggle)
++		echo "curbootval: ${curbootval:-zilch}"; sleep 1
++		if [ -z "$curbootval" ]; then
++			echo "$bootaltmmcvalname is z [non-present] > set to default > 0 (openwrt on mmc)"
++			#fw_setenv $bootaltmmcvalname 0
++			echo "TEST: fw_setenv $bootaltmmcvalname 0"; sleep 2
++			fw_setenv wrtbootalt 0
++			exit 0
++		elif [ "$curbootval" -eq 2 ]; then
++			echo "wrtbootalt 2 > 0 (mmc openwrt)"; sleep 2
++			fw_setenv wrtbootalt 0
++			exit 0
++		elif [ "$curbootval" -eq 0 ]; then
++			echo "wrtbootalt 0 > 2 (oem)"; sleep 2
++			fw_setenv wrtbootalt 2
++			exit 0
++		else
++			echo "current bootvalue (wrtbootalt) is not z, 0 or 2"; sleep 2; exit 1
++		fi
++	;;
++	*)
++		#echo "> get"
++		case "$curbootval" in
++			0) echo "0 [openwrt]"; ;;
++			#1) echo "1 [danger]"; ;;
++			2) echo "2 [oem]"; ;;
++			*) echo "unset--or-invalid: [$curbootval]"; exit 1; ;;
++		esac
++		#exit 0
++	;;
++esac
++exit 0
++EiopK
++chmod +x $writefile
++}
++
++#logit "writing wrtboottoggle /usr/sbin/wrtboottoggle"; sleep 2; writewrtboottoggle "!!!filepath!!!"
++#if [ ! -f /usr/sbin/wrtboottoggle ]; then :; fi
++#blockdev --report #~ df
++
++
++
++checkforvalidusb() {
++if [ -b /dev/sdq1 ] && [ -b /dev/sdq3 ]; then logit "sdq1 and sdq3 are present"; /bin/sleep 2; return 0; fi
++return 1
++}
++#check they are ext2 and ext4 +/- .flagfiles
++
++
++
++
++
++validatedevice() {
++
++logit "validating device"
++sleep 2
++if [ -f "/.iwantabrick" ]; then logit "/.iwantabrick [ok] skipping model validation" && return 0; fi
++if [ -z "$hwversion" ]; then logit "hwversion !@ /proc/sys/kernel/syno_hw_version" && noinstall="y"; fi
++if [ "$hwversion" != "$hwversionvalid" ]; then logit "$hwversion != $hwversionvalid"; noinstall=y; else logit "$hwversion = $hwversionvalid"; fi
++if uname -a | grep -q "$unameoemvalid"; then logit "uname matches: $unameoemvalid"; else logit "uname != $unameoemvalid"; noinstall=y; fi
++if [ ! -z  "$noinstall" ]; then return 1; else return 0; fi # ! -b a b c
++}
++
++
++
++
++validateinstallfiles() {
++
++if [ -f $spath/rootfs.tar.gz ]; then logit "rootfs.tar.gz [ok]"; else logit "rootfs.tar.gz [nope]" && noinstall=y; fi
++if [ -f $spath/kernel ]; then logit "kernel [ok]"; else logit "kernel [nope]" && noinstall=y; fi
++if [ -f boot.scr ]; then logit "boot.scr [ok]"; else logit "boot.scr [nope]" && noinstall=y; fi
++
++rootfs_length=`(cat ${spath}/rootfs.tar.gz | wc -c) 2> /dev/null` #logit "rootfs_length: $rootfs_length"; sleep 3
++[ "$rootfs_length" = 0 ] && noinstall=y
++if [ "$rootfs_length" -gt $rootfsmax ]; then
++	logit "rootfs_length: $rootfs_length > rootfsmax: $rootfsmax [fail]"; /bin/sleep 1; noinstall=y
++else
++	logit "rootfs_length: $rootfs_length < rootfsmax: $rootfsmax [ok]"; /bin/sleep 1
++fi
++
++kernel_length=`(cat ${spath}/kernel | wc -c) 2> /dev/null` #logit "kernel_length: $kernel_length"; sleep 3
++[ "$kernel_length" = 0 ] && noinstall=y
++if [ "$kernel_length" -gt $kernelmax ]; then
++	logit "kernel_length: $kernel_length > kernelmax: $kernelmax [fail]"; /bin/sleep 1; noinstall=y
++else
++	logit "kernel_length: $kernel_length < kernelmax: $kernelmax [ok]"; /bin/sleep 1
++fi
++}
++
++
++
++
++dumpdeviceinfo() {
++#1 outdir? aka metaData/original
++#2 ~stage1|stage2|stage3
++
++logit "dumpdeviceinfo: $2 $1"
++/bin/sleep 1
++
++mkdir -p $1
++
++case "$2" in #logit "case: $2"; sleep 2
++	stage1)
++	    : 	#if [ -d "$1/$2" ]; then #metaPersist flagfile better for stage1 exit check
++		#mkdir -p $1/$2
++
++        if [ ! -f "$1/deviceinfo.$2.txt" ]; then
++
++            echo "### uname -a" >> $1/deviceinfo.$2.txt
++            uname -a >> $1/deviceinfo.$2.txt
++            echo "### /proc/sys/kernel/syno_serial" >> $1/deviceinfo.$2.txt
++            cat /proc/sys/kernel/syno_serial >> $1/deviceinfo.$2.txt
++            echo "### /proc/sys/kernel/syno_wps_ap_pin" >> $1/deviceinfo.$2.txt
++            cat /proc/sys/kernel/syno_wps_ap_pin >> $1/deviceinfo.$2.txt
++            echo "### /proc/sys/kernel/syno_hw_version" >> $1/deviceinfo.$2.txt
++            cat /proc/sys/kernel/syno_hw_version >> $1/deviceinfo.$2.txt
++            echo "### /proc/sys/kernel/syno_mac_addresses" >> $1/deviceinfo.$2.txt
++            cat /proc/sys/kernel/syno_mac_addresses >> $1/deviceinfo.$2.txt
++            echo "### df" >> $1/deviceinfo.$2.txt
++            df >> $1/deviceinfo.$2.txt
++            echo "### cat /proc/mtd" >> $1/deviceinfo.$2.txt
++            cat /proc/mtd >> $1/deviceinfo.$2.txt
++
++        else
++	        logit "$1/deviceinfo.$2.txt [skip-here]"; /bin/sleep 1
++        fi
++
++        logit "synoconfbkp export --filepath=${1}/Synology-configexport-$D.dss"
++        synoconfbkp export --filepath=${1}/Synology-configexport-$D.dss
++
++        cat /proc/mtd | cut -d':' -f1 | grep -v 'dev' | while read mtdpart; do
++	        if [ -f "$1/$mtdpart.org" ]; then
++		        logit "mtdpart: $mtdpart $1/$mtdpart.org [here]"
++    	    else
++		        logit "mtdpart: /dev/$mtdpart > $1/$mtdpart.org [new]" && dd if=/dev/$mtdpart of=$1/$mtdpart.org
++	        fi; #sleep 1
++        done
++
++        if [ -f "$1/mmcblk0p1.org" ]; then
++            logit "$1/mmcblk0p1.org [here]"
++        else
++            logit "$1/mmcblk0p1.org [new]" && dd if=/dev/mmcblk0p1 of=$1/mmcblk0p1.org
++        fi
++
++        if [ -f "$1/mmcblk071.org" ]; then
++            logit "$1/mmcblk0p7.org [here]"
++        else
++            logit "$1/mmcblk0p7.org [new]" && dd if=/dev/mmcblk0p7 of=$1/mmcblk0p7.org
++        fi
++	;;
++
++    stage2) #!!! needs to check persist .openwrt.install.uenv.original
++		if [ ! -f "$1/uenv.org" ]; then
++			logit "fw_printenv >> $1/uenv.org"
++			fw_printenv >> $1/uenv.org
++		else
++			logit "$1/uenv.org [here]"
++		fi
++		/bin/sleep 1
++
++		#if [ ! -f "$1/uenv.org" ]; then #fw_printenv >> $1/uenv.$2.$D.txt
++		#else #elif [ ! -f "$1/uenv.org" ]; then
++		#	fw_printenv >> $1/uenv.$2.$D.txt
++		#fi
++	;;
++
++    stage3)
++		logit "fw_printenv >> $1/uenv.$2.$D.txt"
++		fw_printenv >> $1/uenv.$2.$D.txt
++		/bin/sleep 1
++	;;
++	*) logit "unknown stage case: $2"; return 0; ;;
++esac
++#mountpersist touch unmount
++}
++#stage1 dump vanilla device settings and/or keyparts
++#stage2 dump uenv
++#stage3 dump ?newuenv?
++
++
++
++
++scrubrootfs() {
++	logit "################################## [rootfs-cleanup]: $1"; sleep 2
++	for fold in etc root lib bin sbin lib overlay sbin usr proc sys tmp var rom mnt dev www init; do
++		if [ -e ${1}/$fold ]; then
++			echo -n " /${fold}"
++			rm -rf ${1}/${fold}
++			logit "rm -rf ${1}/${fold}"
++		else
++			logit " -${1}/${fold}"
++		fi; #/bin/sleep 1
++	done; echo ""; /bin/sleep 1
++}
++
++
++unmountdevs() {
++for undev in ${*}; do
++	if mount | grep -q "^$undev "; then
++		logit "unmount $undev"
++		if ! umount $undev; then
++			logit "umount $undev [fail]" #&& terminate FAIL "umount $undev [fail] log:$logFILE"; fi
++			logit "dbgmount: `mount`"
++		fi
++	else
++		logit "unmount $undev [ok] not-mounted"
++	fi
++done
++}
++
++
++
++
++fsckparts() {
++#which e2fsck????????????????????????????????????????????????????????????/
++if [ -z "$1" ]; then logit "fsck no partitions passed" && return 0; fi
++for fpart in ${*}; do
++	logit "Checking for clean filesystem on $fpart"; /bin/sleep 2
++    if mount | grep -q "^$fpart "; then
++			logit "fsck $fpart [mounted:skip]" && continue #&& terminate FAIL "fsck $fpart [fail:mounted] log:$logFILE"
++	fi
++	if e2fsck -p $fpart; then
++		logit "fsck $fpart [ok:1]" && continue
++	else
++		if e2fsck -p $fpart; then
++			logit "fsck $fpart [ok:2]"
++		else
++			logit "fsck $fpart [fail:2]" && terminate FAIL "fsck $fpart [fail] log:$logFILE"
++		fi
++	fi; /bin/sleep 1
++done
++}
++#logit "fsck TESTEARLYEXIT" && terminate FAIL "TESTEARLYEXIT log:$logFILE"
++
++
++
++mountdevs() {
++
++for mntdev in ${*}; do
++	if mount | grep -q "^$mntdev "; then
++		logit "mount $mntdev [ok] is-mounted"
++	else
++		mpnt="`basename $mntdev`"; mkdir -p /mnt/$mpnt; logit "mount $mntdev /mnt/$mpnt"; #sleep 1
++		if ! mount $mntdev /mnt/$mpnt; then
++			logit "mount $mntdev [fail]" && terminate FAIL "mount $mntdev [fail] log:$logFILE"
++		fi
++	fi; /bin/sleep 1
++done
++
++}
++
++
++
++
++logit "to remove... touch /.uninstallopenwrt then reflash *factory*.img"
++
++
++
++#if dest is usb aka > uenv var wrtbootalt=1 >>> wrtbootusbalt=0 >>> updateinvert
++logit "checkforvalidusb"; sleep 1
++checkforvalidusb
++
++
++
++
++uname="`uname -a`"
++arch=`uname -m`
++eval `grep ^unique /etc/synoinfo.conf`
++model="$unique"
++unique=$(eval `grep ^unique /etc/synoinfo.conf`)
++
++
++cd "${0%/*}"
++rm $logFILE 2>/dev/null
++
++
++
++
++
++
++
++#setup outdir here
++metaData="/volume1/openwrt.inst"; mkdir -p ${metaData}
++metaDatao="/volume1/openwrt.inst/original"; mkdir -p ${metaDatao}
++metaPersistpart="mmcblk0p7"; metaPersistmnt="/mnt/${metaPersistpart}"; metaPersistdev="/dev/${metaPersistpart}"
++metaPersist="${metaPersistmnt}"				#p1||p3 > .openwrt.install.originalexport
++
++spath="sysupgrade-rt2600ac/"
++
++bootpartmmc="mmcblk0p1"; bootdevmmc="/dev/${bootpartmmc}"; bootmntmmc="/mnt/${bootpartmmc}"
++rootpartmmc="mmcblk0p6"; rootdevmmc="/dev/${rootpartmmc}"; rootmntmmc="/mnt/${rootpartmmc}"
++miscpartmmc="mmcblk0p6"; miscdevmmc="/dev/${miscpartmmc}"; miscmntmmc="/mnt/${miscpartmmc}"
++persistpartmmc="mmcblk0p7"; persistmntmmc="/mnt/${persistpartmmc}"; persistdevmmc="/dev/${persistpartmmc}"
++mountdevlist="$bootdevmmc $rootdevmmc $miscdevmmc"
++######################################################## CHASETHESETWOBELOWdownWHERE?
++oemrootmntmmc="/mnt/mmcblk0p5"
++miscmnt="/mnt/mmcblk0p6"
++mountparts="$bootpart $rootpart ${miscpartmmc}" #theoldlist
++
++
++
++
++
++
++
++logit "###################################################"
++logit "           pwd: `pwd`"
++logit "       logfile: $logFILE"
++logit "      metaData: $metaData"
++logit "     metaDatao: $metaDatao"
++logit "   metaPersist: $metaPersist"
++logit "###################################################"
++/bin/sleep 2
++/bin/echo "C:9:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++
++#logit "$0 find in extracted dir is: `find .`"		#NEEDS Q=fileonly and/or M=cleanaltfile/files
++#sleep 2
++
++
++
++if ! validatedevice; then
++    logit "device codes not valid: touch /.iwantabrick to force..."
++fi
++/bin/echo "C:15:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++validateinstallfiles
++/bin/echo "C:25:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++if [ "$noinstall" = "y" ]; then
++	logit "halt noinstall: $noinstall"
++	terminate FAIL "noinstall>y please check $logFILE"
++else
++	logit "validate [ok] $noinstall"
++fi
++/bin/echo "C:31:" > /tmp/update.progress; /bin/sleep 2
++
++
++
++
++######### THEREISASTAGE1-AFTERfsck
++#dumpdeviceinfo "$metaDatao" #<oldsample? no stagenmame is there a default case? or did i miss changing this to stage1
++#/bin/echo "C:33:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++
++#@tba .usbroot || etc. etc.
++if [ -f "/.uninstallopenwrt" ]; then
++	logit "uninstalling /.uninstallopenwrt [ok]"
++	uninstall=y
++else
++	logit "no /.uninstallopenwrt > [install]"
++fi
++/bin/sleep 1
++
++
++
++
++
++
++
++if [ "$(cat /proc/sys/kernel/syno_install_flag)" -eq 0 ]; then
++	logit "enabling install-flag"; echo -n 1 > /proc/sys/kernel/syno_install_flag
++else
++	logit "install-flag is ok"
++fi
++/bin/sleep 1
++
++
++
++
++
++
++	
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++logit "20210703 iDBG logit MSG debug TEST1" debug
++sleep 2
++logit "20210703 iDBG logit MSG debug TEST2nodebug"
++sleep 2
++logit "20210703 iDBG logit MSG debug TEST3otherword-log" log
++sleep 2
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++#! p6 is mounted at volume1 but at /dev/sda6 ... probably would not have bugged
++#unmountdevs "/dev/mmcblk0p1 /dev/mmcblk0p7 /dev/mmcblk0p6" #??? /dev< needs '/dev ' /dev/mmcblk0p6"
++unmountdevs "/dev/mmcblk0p1 /dev/mmcblk0p7 /dev /dev/mmcblk0p6"
++/bin/echo "C:35:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++
++#checks mount > continue[later>terminate?]
++
++
++
++/bin/echo "C:37:" > /tmp/update.progress
++fsckpartslist="/dev/mmcblk0p1 /dev/mmcblk0p7" #novariable(individual-names) mistakescostly #bootdevmmc persistdevmmc
++fsckparts "$fsckpartslist"
++
++
++
++
++
++
++
++
++/bin/echo "C:57:" > /tmp/update.progress; #firefirst-nosleep
++dumpdeviceinfo "$metaDatao" "stage1"
++
++
++logit "$0 find in metaData: `find $metaData`"; /bin/sleep 2
++
++
++
++
++#!!!!!!!!!!!!!!!!!!!!!!!!!!!!   DELIB_LEAVE_BUG_1_UNDER
++/bin/echo "C:60:" > /tmp/update.progress
++logit "Mounting mountparts: ${mountdevlist}"; /bin/sleep 1			#${mountparts}
++mountdevs "$mountdevlist"
++
++
++
++
++
++
++
++
++
++
++
++
++
++###########################################################################################
++#does scrub check mounted first? #we need more safety checks
++########################################################################################
++if [ -d "$installmnt/'@appstore'" ]; then #mmcblk0p6 aka misc || 7 for now in case we make it dynamic
++	#INSTmntINVALID="$INSTmntINVALID no-appstore-p6"
++	INSTmntVALID="$INSTmntINVALID appstore-p6"
++fi
++
++if [ -d "$installmnt/indexdb.tgz" ]; then #mmcblk0p7 aka rootfsmntISH
++	#INSTmntINVALID="$INSTmntINVALID no-indexdb.tgz-p7"
++	INSTmntVALID="$INSTmntINVALID indexdb.tgz-p7"
++fi
++
++
++
++
++
++
++
++
++
++
++#############################################panickactions() {
++
++panickactions() {
++
++	
++
++
++
++
++logit "Cleanup: ${*}..." #keepgenericincaseweuseforsuccessandfail
++
++#NEW logit "Cleanup oops: ${*}..."
++#SUCCESSONLY logit "Cleanup..."
++/bin/echo "C:93:" > /tmp/update.progress; /bin/sleep 1
++
++#@@@ possible duplicate minimal recovery files to usb and or persist < if isusb?
++
++
++unmountdevs "/dev/mmcblk0p1 /dev/mmcblk0p7 /dev /dev/mmcblk0p6 /dev/mmcblk0p5"
++/bin/echo "C:97:" > /tmp/update.progress; /bin/sleep 2
++
++
++
++
++#@ORGCASE 1 success||fail SUCCESSONLY logit "YOU MUST COPY $metaData off the device"
++terminate FAIL "${1}"
++
++
++}
++
++
++
++
++
++
++
++
++
++
++if [ -z "$INSTmntVALID" ]; then
++	
++
++	##################@@@> also check free space IF||after scrub etc
++
++
++	##################can probably combine end safe cleanup with panick (newcopy)cleanup functon above
++	panickactions "failed to confirm install mount"	
++	######################3NOTE above should exit but put this here while testing
++	exit 0
++	######################3NOTE above should exit but put this here while testing
++fi
++
++
++
++
++
++
++
++
++
++
++	$INSTmntVALID
++
++
++
++
++
++
++############################################################################ END2021freestyletmpCONDENSEsection
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++installmnt="$miscmntmmc" #installmnt="$miscmnt"
++logit "scrubrootfs $installmnt"; /bin/sleep 2
++scrubrootfs $installmnt; /bin/sleep 2 #logit "scrubrootfs $rootmntmmc"; sleep 2; scrubrootfs $rootmntmmc; sleep 2
++
++
++
++
++
++
++
++
++
++
++
++
++
++######################### check existing files / folders status so we can exit before unpack etc...
++######### do we need to scrub if so... uboot is ok? #rootmntmmc="/mnt/mmcblk0p7"
++#logit "cp ${spath}rootfs.tar.gz /volume1/"; sleep 2; cp ${spath}rootfs.tar.gz /volume1/; sleep 2
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++if [ -z "$uninstall" ]; then #installmnt was ${rootmntmmc}/
++
++	logit "Unpacking rootfs.tar.gz to installmnt: $installmnt (needed for fwprintenv)"; /bin/sleep 2
++	logit "tar -xzf ${spath}rootfs.tar.gz -C ${installmnt}"; tar -xzf ${spath}rootfs.tar.gz -C ${installmnt}; /bin/sleep 1
++
++	echo "DBG: ls -lah ${installmnt}/"; ls -lah ${installmnt}/; /bin/sleep 3
++
++	logit "sync"
++	sync
++else
++	logit "uninstall: skip unpack rootfs"
++fi
++/bin/echo "C:65:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++logit "writing fake chroot /usr/sbin/fw_printenv"; /bin/sleep 2
++writefakefwprint #check exists?
++
++
++
++
++
++
++
++
++
++
++#logit "writing wrtboottoggle /usr/sbin/wrtboottoggle"; sleep 2
++writewrtboottoggle "/usr/sbin/wrtboottoggle"
++sleep 1
++#logit "writing wrtboottoggle $installmnt/usr/sbin/wrtboottoggle"; sleep 2
++writewrtboottoggle "$installmnt/usr/sbin/wrtboottoggle"
++sleep 1
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++if [ ! -f "$installmnt/etc/fw_env.config" ]; then #logit " $installmnt"; sleep 2;
++	
++	logit "echo \"/dev/mtd9 0x0 0x40000 0x10000\" > $installmnt/etc/fw_env.config"
++	echo "/dev/mtd9 0x0 0x40000 0x10000" > $installmnt/etc/fw_env.config
++	
++	#@@@?> think sent pr to fix this
++	logit "touch $installmnt/etc/config/ubootenv to stop firstboot adding twice"
++	touch $installmnt/etc/config/ubootenv #or rm $installmnt/etc/uci-defaults/30_uboot-envtools
++fi; sleep 1
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++uenvtest() {
++if [ -z "$(which fw_printenv)" ]; then terminate FAIL "fw_printenv [test-no-exe] log:$logFILE"; fi
++unset uenvcount; uenvcount=$(fw_printenv | wc -l)
++if [ ! -z "$uenvcount" ] && [ "$uenvcount" -gt 9 ]; then return 0; else return 1; fi
++}
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++if uenvtest; then
++	logit "fw_printenv test [ok:$uenvcount]" #logit "`fw_printenv`"
++	dumpdeviceinfo "$metaDatao" "stage2"
++else
++	logit "fw_printenv test [fail:$uenvcount]" && terminate FAIL "fw_printenv [test-fail:$uenvcount] log:$logFILE"
++fi; sleep 2
++####logit "$0 find in metaDis: `find $metaDo`"
++
++
++
++
++
++
++
++
++
++if fw_printenv | grep -q 'bootcmd=run syno_bootargs; run bootmmc'; then
++	logit "uboot-mod boot.scr [add]"; sleep 2; ubootmod=y #~first handle copy and kernel
++	if [ -z "$uninstall" ]; then freshinstall=y; fi
++elif fw_printenv | grep -q 'bootcmd=run checkbootscr; run syno_bootargs; run bootmmc'; then
++	logit "uboot-mod boot.scr [ismodded]"; sleep 2
++else
++	terminate FAIL "fw_printenv [boot.scr test unknown] log:$logFILE" #@probably need some fancy cleanup as half way...
++fi
++/bin/echo "C:70:" > /tmp/update.progress; /bin/sleep 1
++###########################################################NEVERUSED
++###backd="/volume1/opewnrt-install-`date +%Y%m%d-%H%M`"
++###logit "fw_printenv export to $backd/uenv.org"
++###fw_printenv > $backd/uenv.org
++###sleep 2;
++
++
++
++
++
++
++
++
++
++
++
++
++if [ "$freshinstall" = "y" ]; then
++	stage3append="-fresh"
++else
++	stage3append="-nochange"
++fi
++#if [ "$freshinstall" = "y" ]; then
++#dumpdeviceinfo "$metaDatao" "stage3" "-post-${stage3append}" #^@~pre-post-w-D...as3?
++#if ! -f kernel then warn that probably a repeat uninstall or just 2>/dev/null them || freshinstall=y
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++
++logit "DBGremoveme uninstall:$uninstall (setwhere?)"; sleep 2
++if [ -z "$uninstall" ]; then
++
++    #logit "justchecking bootmntmmc: $bootmntmmc"; sleep 2
++	#logit "find $bootmntmmc [pre]"; sleep 2; logit "`find $bootmntmmc`"
++
++
++    logit "commencing write new os fixme"; sleep 5
++
++    logit "cp ${spath}kernel $bootmntmmc"; sleep 2
++    cp ${spath}kernel $bootmntmmc/ || terminate FAIL "copy kernel [fail] log:$logFILE"		#@cln
++    /bin/echo "C:90:" > /tmp/update.progress
++
++
++
++	logit "cp boot.scr $bootmntmmc"; sleep 2
++	cp boot.scr $bootmntmmc/ || terminate FAIL "boot.scr [fail] log:$logFILE"			    #@cln
++	/bin/echo "C:91:" > /tmp/update.progress
++
++
++    logit "DBG: find $bootmntmmc [post]"; sleep 2; logit "`find $bootmntmmc`"
++
++
++
++	#202107DONTDOTHISyet
++	ubootmod=
++	if [ "$ubootmod" = "y" ]; then
++		#@@@~topheredocfortheseverbatim->for-portability
++		#if persist flagfile warn that may have been reset or bug
++		#if [ "$freshinstall" = "y" ]; then
++		#fi
++
++        #@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ combinetheseintosinglewrite
++		logit "fw_setenv bootcmd 'run checkbootscr; run syno_bootargs; run bootmmc'"
++		fw_setenv bootcmd 'run checkbootscr; run syno_bootargs; run bootmmc'
++        sleep 2
++
++		logit "fw_setenv checkbootscr 'if ext2load mmc 0:1 \${sload} boot.scr; then echo Running mmc 0 boot.scr && source \${sload}; else echo "no mmc 0 boot.scr found"; fi'"; sleep 1
++		fw_setenv checkbootscr 'if ext2load mmc 0:1 ${sload} boot.scr; then echo Running mmc 0 boot.scr && source ${sload}; else echo "no mmc 0 boot.scr found"; fi'
++
++		logit "fw_setenv sload '0x49000000'"
++		fw_setenv sload '0x49000000'
++        sleep 1
++
++		logit "fw_setenv dload '0x48000000'"
++		fw_setenv dload '0x48000000'
++        sleep 1
++
++		logit "fw_setenv uload '0x50000000'"
++		fw_setenv uload '0x50000000'
++        sleep 1
++
++	else	
++		logit "202107 ubootmoddingtemporarilyoff"
++	
++	fi
++
++
++
++
++
++
++
++
++else
++
++	logit "uninstall [remove-uboot-vars]"
++    sleep 2
++    logit "TBA > setting> fw_setenv wrtbootalt 2 (oem) usb remains bootable + boot.scr will fallback-to-oem"
++    sleep 6
++
++
++
++    logit "202107revertubootbootaltoff"
++    #logit "fw_setenv wrtbootalt 2"
++    #fw_setenv wrtbootalt 2
++    #sleep 2
++
++
++
++
++
++	##################################################################!!! wrtboottoggle > needs param for specify ||
++fi
++
++
++
++
++
++#202107
++logit "report current wrtbootalt set-to: 202107tmpoff"
++#logit "report current wrtbootalt set-to: $(fw_printenv wrtbootalt)"
++
++
++
++
++
++/bin/echo "C:92:" > /tmp/update.progress
++dumpdeviceinfo "$metaDatao" "stage3" "-post-${stage3append}" #^@~pre-post-w-D...as3?
++
++
++
++
++
++
++
++
++
++logit "Cleanup..."
++/bin/echo "C:93:" > /tmp/update.progress; /bin/sleep 1
++
++#@@@ possible duplicate minimal recovery files to usb and or persist < if isusb?
++
++
++unmountdevs "/dev/mmcblk0p1 /dev/mmcblk0p7 /dev /dev/mmcblk0p6 /dev/mmcblk0p5"
++/bin/echo "C:97:" > /tmp/update.progress; /bin/sleep 2
++
++
++logit "YOU MUST COPY $metaData off the device"
++terminate OK "Everything is fine (please reboot) + YOU MUST COPY $metaData off the device"
++exit 0
++
++
++
++
++#rootfsmax<16 should be roughly 43M #rootfsmax=26894071 = 71M unpacked too big by two@26M-generic-rootfs.tar.gz so maybe 17M max
++#rootfsmax2<16 should be roughly 43M #rootfsmax=26894071 = 71M unpacked too big by two@26M-generic-rootfs.tar.gz so maybe 17M max ####FOR mmc6
++#syno_hw_version=RT2600acv10 UBOOTVAR
++#Linux SynologyRouter 3.4.103 #6941 SMP Mon Aug 27 17:11:16 CST 2018 armv7l GNU/Linux synology_ipq806x_rt2600ac
++#migrate to /volume1/openwrt.inst|aka|datadirETC/{original,dated} logFILE
++
++
++
++
++#echo "FOOBARBABY" > /tmp/update.message
++#####echo "P:-42:" > /tmp/update.progress
++#echo "P:-0:" > /tmp/update.progress
++####echo "A:1:" > /tmp/update.progress
++#####echo "P:-42:" > /tmp/update.progress
++######"C:0:" "C:-0"
++# remove trap
++#trap 0
++#37 </bin/echo "C:50:" > /tmp/update.progress; /bin/sleep 1
++#35 </bin/echo "C:55:" > /tmp/update.progress; /bin/sleep 1
++
++
++
++
++alsonoplay() {
++#########################################################
++#uname="`uname -a`"
++#arch=`uname -m`
++#eval `grep ^unique /etc/synoinfo.conf`
++#model="$unique"
++#unique=$(eval `grep ^unique /etc/synoinfo.conf`)
++#########################################################
++callerppid=`set | grep PPID | cut -d"'" -f2` #PPID='8559'
++statinfo="`cat /proc/$$/stat`"
++statppid="`echo $statinfo | cut -d' ' -f4`"
++#psstatppid="`ps -w | grep $statppid`"
++#pscallerppid="`ps -w | grep $callerppid`"
++#########################################################
++#blockdev --report
++logit "$0-INIT with ${*} fromD: $$" #NOTHING> logit "$0-INIT with ${*} fromB: $!"
++logit "`set | grep REMOTE_ADDR | cut -d"'" -f2`"
++logit "###################################################"
++logit "uname: $uname"
++logit "$0-UNIQ: $unique"
++logit "###################################################"
++logit "###################################################"
++logit "$0-STAT PPID: `cat /proc/$$/stat`"
++logit "###################################################"
++logit "$0-STAT-ps-w-statppid-$statppid: `ps -w | grep $statppid`"
++logit "$0-STAT-ps-w-callerpid-$callerppid: `ps -w | grep $callerppid`"
++logit "###################################################"
++logit "###################################################"
++logit "$0 startpwd is: `pwd`"
++logit "$0 ExTRACTED-to-DIR-is: ${0%/*}"
++#logit "$0-INIT-set `set`"
++}
++
++
++
++
++
++
++
++#DID THIS CORRUPT MY ENV? DOUBT IT AS WOULD NOT HAVE RAN YET > it was two lines(dupe in etc/fw_env.config caused by echo before firstboot
++#NB: For some reason the uboot var rewrite did not work after the below was written
++#bootcmd=bootp; setenv bootargs root=/dev/nfs nfsroot=${serverip}:${rootpath} ip=${ipaddr}:${serverip}:${gatewayip}:${netmask}:${hostname}::off; bootm
++#bootdelay=5
++#baudrate=115200
++
++
++
++##########originals
++#kload=0x44000000
++#rload=0x46000000
++#########adds
++#dload 0x48000000
++#uload 0x50000000
++#sload '0x49000000'
++
++
++#checkusb=usb start; if ext2load usb 0:1 ${uload} booty.txt; then echo Importing USB booty.txt && env import -t ${uload} ${filesize} && run bootcmd; fi
++
